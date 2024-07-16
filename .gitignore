@@ -30,6 +30,7 @@ env/
 /.venv/
 /lib/
 /include/
+/venv/
 
 # Editor-specific files
 .vscode/
