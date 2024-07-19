@@ -39,7 +39,7 @@ class User(AbstractUser):
 
     first_name = models.CharField(_("first name"), max_length=150, blank=True, null=True)
     last_name = models.CharField(_("last name"), max_length=150, blank=True, null=True)
-    profile_picture = models.ImageField(_("profile picture"), upload_to="profile_pictures/", blank=True, null=True)
+    profile_picture = models.ImageField(_("profile picture"), upload_to="static/profile_pictures/", blank=True, null=True)
     phone_number = models.CharField(_("phone number"), max_length=20, blank=True)
     date_of_birth = models.DateField(_("date of birth"), null=True, blank=True)
     gender = models.CharField(_("gender"), max_length=10, blank=True)
@@ -72,7 +72,7 @@ class Farm(BaseModel):
     user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
 
     farm_name = models.CharField(_("farm name"), max_length=255, blank=True)
-    farm_logo = models.ImageField(_("farm logo"), upload_to="farm_logos/", blank=True, null=True)
+    farm_logo = models.ImageField(_("farm logo"), upload_to="static/farm_logos/", blank=True, null=True)
     tax_id = models.CharField(max_length=255, blank=True, null=True)
     farm_email = models.CharField(max_length=255)
     farm_website = models.CharField(max_length=255, blank=True, null=True)
