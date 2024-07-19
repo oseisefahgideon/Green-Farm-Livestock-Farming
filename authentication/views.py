@@ -9,15 +9,15 @@ from django.shortcuts import redirect
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
-from .serializers import TokenSerializer
+from .serializers import TokenSerializer, GoogleLoginSerializer
 from rest_framework.response import Response
 from drf_yasg.utils import swagger_auto_schema
-from drf_yasg import openapi
 
 client = WebApplicationClient(settings.GOOGLE_CLIENT_ID)
 
 class GoogleLoginView(APIView):
     permission_classes = [permissions.AllowAny]
+    serializer_class = GoogleLoginSerializer
 
     @swagger_auto_schema(
         operation_description="Initiates the Google OAuth2 login process",
@@ -31,8 +31,8 @@ class GoogleLoginView(APIView):
             redirect_uri=settings.GOOGLE_REDIRECT_URI,
             scope=["openid", "email", "profile"],
         )
-        return JsonResponse({'url': request_uri})
 
+        return Response({'url': request_uri}, status=status.HTTP_200_OK)
 
 class GoogleCallbackView(APIView):
     permission_classes = [permissions.AllowAny]
@@ -103,12 +103,7 @@ class GoogleCallbackView(APIView):
         access_token = str(refresh.access_token)
         refresh_token = str(refresh)
         
-        serializer = TokenSerializer(data={
+        return Response({
             'access_token': access_token,
             'refresh_token': refresh_token
-        })
-        
-        if serializer.is_valid():
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        }, status=status.HTTP_200_OK)

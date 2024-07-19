@@ -3,6 +3,10 @@ from django.contrib.auth.base_user import BaseUserManager
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+from base.models import BaseModel
+from django.contrib.auth import get_user_model
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 
 class UserManager(BaseUserManager):
     def create_user(self, email, password, **extra_fields):
@@ -14,9 +18,6 @@ class UserManager(BaseUserManager):
         user = self.model(email=email, **extra_fields)
         user.set_password(password)
         user.save()
-        
-        # Create a farm for the new user
-        Farm.objects.create(user=user)
         
         return user
 
@@ -54,11 +55,43 @@ class User(AbstractUser):
     EMAIL_FIELD = "email"
     REQUIRED_FIELDS = []
 
-class Farm(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='farm')
-    farm_name = models.CharField(_("farm name"), max_length=255, blank=True)
-    location = models.CharField(_("location"), max_length=255, blank=True)
 
+class FarmManager(models.Manager):
+    def get_queryset(self):
+        return super().get_queryset().filter(is_deleted=False)
+
+    # get user's Farm
+    def get_user_farm(self, user: User):
+        return self.get_queryset().filter(user=user).first()
+
+
+class Farm(BaseModel):
+
+    objects = FarmManager()
+
+    user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
+
+    farm_name = models.CharField(_("farm name"), max_length=255, blank=True)
+    farm_logo = models.ImageField(_("farm logo"), upload_to="farm_logos/", blank=True, null=True)
+    tax_id = models.CharField(max_length=255, blank=True, null=True)
+    farm_email = models.CharField(max_length=255)
+    farm_website = models.CharField(max_length=255, blank=True, null=True)
+    farm_phone_number = models.CharField(max_length=20, blank=True, null=True)
+    farm_address = models.CharField(max_length=255, blank=True, null=True)
+    farm_city = models.CharField(max_length=100, blank=True, null=True)
+    farm_state_province = models.CharField(max_length=100, blank=True, null=True)
+    farm_country = models.CharField(max_length=100, blank=True, null=True)
+    farm_postal_code = models.CharField(max_length=20, blank=True, null=True)
+    
     def __str__(self):
         return f"{self.farm_name} - {self.user.email}"
+    
+@receiver(post_save, sender=User)
+def create_a_default_company(sender, instance: User, created, **kwargs):
+
+    if created:
+        Farm.objects.create(user=instance)
+
+    # if user has no Farm, create a default Farm for user
+    if not instance.farm_set.all():
+        Farm.objects.create(user=instance)

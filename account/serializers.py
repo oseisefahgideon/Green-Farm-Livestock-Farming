@@ -4,17 +4,28 @@ from .models import User, Farm
 class FarmSerializer(serializers.ModelSerializer):
     class Meta:
         model = Farm
-        fields = ('farm_name', 'location')
+        read_only_fields = ("created", "updated", "user")
+        exclude = ("is_deleted",)
 
 class UserSerializer(serializers.ModelSerializer):
-    farm = FarmSerializer(required=False)
+    farm_id = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ("id", "email", "password", "first_name", "last_name", "profile_picture", "phone_number", 
-                  "date_of_birth", "gender", "address", "city", "state_province", 
-                  "country", "postal_code", "farm")
+        exclude = ["password", "user_permissions", "groups", "is_superuser"]
+        read_only_fields = [
+            "last_login",
+            "date_joined",
+            "is_registration_completed",
+            "is_active",
+            "is_staff",
+            "email",
+        ]
         extra_kwargs = {"password": {"write_only": True}}
+
+    def get_farm_id(self, obj: User):
+        farm = obj.farm_set.first()
+        return farm.id if farm else None
 
     def create(self, validated_data):
         farm_data = validated_data.pop('farm', None)
