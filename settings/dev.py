@@ -10,31 +10,21 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.0/ref/settings/
 """
 
-from pathlib import Path
 from datetime import timedelta
-from dotenv import load_dotenv
 import os
+from pathlib import Path
+from dotenv import load_dotenv
 
 # Load environment variables from .env file
 load_dotenv()
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
-
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv('SECRET_KEY')
-
-# SECURITY WARNING: don't run with debug turned on in production!
+SECRET_KEY = os.getenv('KEY')
 DEBUG = True
 
-ALLOWED_HOSTS = [
-    '127.0.0.1',  # This is your localhost
-    'localhost',  # This is another form of localhost
-]
+# Get ALLOWED_HOSTS from environment variable
+ALLOWED_HOSTS = os.getenv("HOSTS", "").split(",")
 
 
 # Application definition
@@ -55,7 +45,9 @@ INSTALLED_APPS = [
     "rest_framework.authtoken",
     "corsheaders",
     "oauth2_provider",
-    # "social_django",
+    "social_django",
+    "drf_social_oauth2",
+    
 
 # App
     "api",
@@ -70,7 +62,7 @@ REST_FRAMEWORK = {
         "rest_framework.authentication.SessionAuthentication",
         "rest_framework.authentication.BasicAuthentication",
         'oauth2_provider.contrib.rest_framework.OAuth2Authentication',
-        # 'drf_social_oauth2.authentication.SocialAuthentication',
+        'drf_social_oauth2.authentication.SocialAuthentication',
     ),
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
@@ -86,16 +78,15 @@ SIMPLE_JWT = {
 
 AUTHENTICATION_BACKENDS = (
     # Google OAuth2
-#    'social_core.backends.google.GoogleOAuth2',
-   'drf_social_oauth2.backends.DjangoOAuth2',
+   'social_core.backends.google.GoogleOAuth2',
    'django.contrib.auth.backends.ModelBackend',
 )
 
 # Define SOCIAL_AUTH_GOOGLE_OAUTH2_SCOPE to get extra permissions from Google.
-# SOCIAL_AUTH_GOOGLE_OAUTH2_SCOPE = [
-#     'https://www.googleapis.com/auth/userinfo.email',
-#     'https://www.googleapis.com/auth/userinfo.profile',
-# ]
+SOCIAL_AUTH_GOOGLE_OAUTH2_SCOPE = [
+    'https://www.googleapis.com/auth/userinfo.email',
+    'https://www.googleapis.com/auth/userinfo.profile',
+]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -142,6 +133,8 @@ DATABASES = {
         "PORT": os.getenv("DB_PORT"),
     }
 }
+
+
 
 # DATABASES = {
 #     'default': {
@@ -229,13 +222,7 @@ SWAGGER_SETTINGS = {
 AUTH_USER_MODEL = "account.User"
 
 
-# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-# EMAIL_HOST = 'smtp.gmail.com'
-# EMAIL_PORT = 587
-# EMAIL_USE_TLS = True
-# EMAIL_HOST_USER = 'ads21b00266y@ait.edu.gh'
-# EMAIL_HOST_PASSWORD = 'pxfn rxip ecks ssmu'
-
 # Google configuration
-# SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = os.getenv("GOOGLE_CLIENT_ID")
-# SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
+GOOGLE_CLIENT_ID  = os.getenv("GOOGLE_CLIENT_ID")
+GOOGLE_CLIENT_SECRET  = os.getenv("GOOGLE_CLIENT_SECRET")
+GOOGLE_REDIRECT_URI=os.getenv("GOOGLE_REDIRECT_URI")
