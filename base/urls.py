@@ -26,9 +26,9 @@ from django.conf.urls.static import static
 
 schema_view = get_schema_view(
    openapi.Info(
-      title="API title",
+      title="Livestock Management API",
       default_version='v1',
-      description="API Description",
+      description="Manage Livestock, Health, Feeding, Tasks, Calendar Events and Inventory",
       terms_of_service="https://www.google.com/policies/terms/",
       contact=openapi.Contact(email="contact@yourapi.local"),
       license=openapi.License(name="BSD License"),

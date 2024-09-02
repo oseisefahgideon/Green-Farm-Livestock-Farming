@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     "account",
     "management",
     "tasks",
+    "inventory",
 
 ]
 
