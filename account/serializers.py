@@ -12,14 +12,12 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        exclude = ["password", "user_permissions", "groups", "is_superuser"]
+        exclude = ["user_permissions", "groups", "is_superuser"]
         read_only_fields = [
             "last_login",
             "date_joined",
-            "is_registration_completed",
             "is_active",
             "is_staff",
-            "email",
         ]
         extra_kwargs = {"password": {"write_only": True}}
 
