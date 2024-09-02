@@ -11,7 +11,7 @@
    Clone the project repository to your local machine:
    
    ```shell
-   git clone <url>
+   git clone https://github.com/YounoussaBen/farming_livestock_core.git
    ```
 
 2. **Create a Virtual Environment:**
