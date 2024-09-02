@@ -4,4 +4,5 @@ urlpatterns = [
     path("auth/", include("authentication.urls")),
     path("account/", include("account.urls")),
     path("management/", include("management.urls")),
+    path("tasks/", include("tasks.urls")),
 ]
