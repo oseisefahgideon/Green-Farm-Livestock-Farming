@@ -15,7 +15,7 @@ logs/
 
 # Static files
 /staticfiles/
-/static/
+# /static/
 
 # Media files
 /media/
