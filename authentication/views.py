@@ -18,6 +18,8 @@ from django.utils.encoding import force_bytes, force_str
 from django.template.loader import render_to_string
 from django.core.mail import EmailMessage
 from django.contrib.auth import update_session_auth_hash
+from django.views.generic import TemplateView
+from django.urls import reverse
 
 client = WebApplicationClient(settings.GOOGLE_CLIENT_ID)
 
@@ -161,11 +163,17 @@ class PasswordResetView(APIView):
             if user:
                 token = default_token_generator.make_token(user)
                 uid = urlsafe_base64_encode(force_bytes(user.pk))
-                reset_url = f"{settings.FRONTEND_URL}/reset-password/{uid}/{token}/"
+                
+                # Update this line
+                reset_url = reverse('password_reset_confirm', kwargs={'uidb64': uid, 'token': token})
+                
+                # If you need to include the full URL (including domain), do this:
+                full_reset_url = request.build_absolute_uri(reset_url)
+                
                 mail_subject = 'Reset your password'
                 message = render_to_string('password_reset_email.html', {
                     'user': user,
-                    'reset_url': reset_url,
+                    'reset_url': full_reset_url,  # Use full_reset_url here
                 })
                 email_message = EmailMessage(
                     mail_subject, message, settings.EMAIL_HOST_USER, [email]
@@ -178,27 +186,29 @@ class PasswordResetView(APIView):
 class PasswordResetConfirmSerializer(serializers.Serializer):
     new_password = serializers.CharField(required=True)
 
-class PasswordResetConfirmView(APIView):
-    permission_classes = [permissions.AllowAny]
-    serializers_class = PasswordResetConfirmSerializer
+class PasswordResetConfirmView(TemplateView, APIView):
+    template_name = 'password_reset_confirm.html'
 
-    @swagger_auto_schema(
-        operation_description="Reset password with token",
-        request_body=PasswordResetConfirmSerializer,
-        responses={200: "Password reset successfully"}
-    )
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['uidb64'] = self.kwargs['uidb64']
+        context['token'] = self.kwargs['token']
+        return context
+
     def post(self, request, uidb64, token):
-        serializer = PasswordResetConfirmSerializer(data=request.data)
-        if serializer.is_valid():
-            try:
-                uid = force_str(urlsafe_base64_decode(uidb64))
-                user = User.objects.get(pk=uid)
-            except (TypeError, ValueError, OverflowError, User.DoesNotExist):
-                user = None
-            if user and default_token_generator.check_token(user, token):
-                user.set_password(serializer.validated_data['new_password'])
+        try:
+            uid = force_str(urlsafe_base64_decode(uidb64))
+            user = User.objects.get(pk=uid)
+        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+            user = None
+
+        if user and default_token_generator.check_token(user, token):
+            new_password = request.data.get('new_password')
+            if new_password:
+                user.set_password(new_password)
                 user.save()
                 return Response({"detail": "Password reset successfully."}, status=status.HTTP_200_OK)
             else:
-                return Response({"error": "Invalid token or user ID"}, status=status.HTTP_400_BAD_REQUEST)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                return Response({"error": "New password is required"}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            return Response({"error": "Invalid token or user ID"}, status=status.HTTP_400_BAD_REQUEST)
