@@ -212,3 +212,4 @@ class PasswordResetConfirmView(TemplateView, APIView):
                 return Response({"error": "New password is required"}, status=status.HTTP_400_BAD_REQUEST)
         else:
             return Response({"error": "Invalid token or user ID"}, status=status.HTTP_400_BAD_REQUEST)
+        
