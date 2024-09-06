@@ -1,26 +1,22 @@
-# from django.contrib.auth.models import User
-from .models import User, Farm
-from rest_framework import generics
-from .serializers import UserSerializer, FarmSerializer
-from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.shortcuts import get_object_or_404
+from rest_framework import generics, status
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
-from rest_framework import status
-
+from .models import User, Farm
+from .serializers import UserCreateSerializer, UserRetrieveUpdateSerializer, FarmSerializer
 
 class CreateUserView(generics.CreateAPIView):
     queryset = User.objects.all()
-    serializer_class = UserSerializer
+    serializer_class = UserCreateSerializer  # Use the create serializer
     permission_classes = [AllowAny]
 
 class RetrieveUpdateDeleteUserView(generics.RetrieveUpdateDestroyAPIView):
     queryset = User.objects.all()
-    serializer_class = UserSerializer
+    serializer_class = UserRetrieveUpdateSerializer  # Use the retrieve/update serializer
     permission_classes = [IsAuthenticated]
 
     def get_object(self):
         return self.request.user
-
 
 class FarmRetrieveUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = FarmSerializer
@@ -30,10 +26,10 @@ class FarmRetrieveUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
         return Farm.objects.get_queryset()
 
     def get_object(self):
-        # get all users companies and return the first one
-        companies = self.get_queryset().filter(user=self.request.user)
-        company_id = self.kwargs.get("pk")
-        return get_object_or_404(companies, id=company_id)
+        # get all user's farms and return the first one
+        farms = self.get_queryset().filter(user=self.request.user)
+        farm_id = self.kwargs.get("pk")
+        return get_object_or_404(farms, id=farm_id)
 
     def delete(self, request, *args, **kwargs):
         instance = self.get_object()

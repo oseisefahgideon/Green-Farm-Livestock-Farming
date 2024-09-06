@@ -7,18 +7,14 @@ class FarmSerializer(serializers.ModelSerializer):
         read_only_fields = ("created", "updated", "user")
         exclude = ("is_deleted",)
 
-class UserSerializer(serializers.ModelSerializer):
+# Serializer for creating users
+class UserCreateSerializer(serializers.ModelSerializer):
     farm_id = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         exclude = ["user_permissions", "groups", "is_superuser"]
-        read_only_fields = [
-            "last_login",
-            "date_joined",
-            "is_active",
-            "is_staff",
-        ]
+        read_only_fields = ["last_login", "date_joined", "is_active", "is_staff"]
         extra_kwargs = {"password": {"write_only": True}}
 
     def get_farm_id(self, obj: User):
@@ -31,6 +27,25 @@ class UserSerializer(serializers.ModelSerializer):
         if farm_data:
             Farm.objects.filter(user=user).update(**farm_data)
         return user
+
+# Serializer for retrieving/updating users
+class UserRetrieveUpdateSerializer(serializers.ModelSerializer):
+    farm_id = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        exclude = ["user_permissions", "groups", "is_superuser", "password"]  # Exclude password field
+        read_only_fields = [
+            "last_login",
+            "date_joined",
+            "is_active",
+            "is_staff",
+            "email"
+        ]
+
+    def get_farm_id(self, obj: User):
+        farm = obj.farm_set.first()
+        return farm.id if farm else None
 
     def update(self, instance, validated_data):
         farm_data = validated_data.pop('farm', None)
