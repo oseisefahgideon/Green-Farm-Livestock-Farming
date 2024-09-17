@@ -12,6 +12,7 @@ from django.core.files.storage import default_storage
 from .serializers import TokenSerializer, GoogleLoginSerializer
 from rest_framework.response import Response
 from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 from django.contrib.auth.tokens import default_token_generator
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
@@ -44,11 +45,10 @@ class GoogleLoginView(APIView):
 
 class GoogleCallbackView(APIView):
     permission_classes = [permissions.AllowAny]
-    serializer_class = TokenSerializer
 
     @swagger_auto_schema(
-        operation_description="Handles the Google OAuth2 callback",
-        responses={200: TokenSerializer}
+        operation_description="Handles the Google OAuth2 callback and returns the authorization code",
+        responses={200: "Returns the authorization code"}
     )
     def get(self, request):
         # Get the authorization code from the callback request
@@ -56,7 +56,28 @@ class GoogleCallbackView(APIView):
         if not code:
             return JsonResponse({'error': 'Authorization code not provided'}, status=400)
         
-        # Exchange the authorization code for an access token
+        # Instead of exchanging the code, simply return it to the client
+        return JsonResponse({'code': code}, status=200)
+    
+class GoogleExchangeView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    @swagger_auto_schema(
+        operation_description="Exchanges Google authorization code for access and refresh tokens",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'code': openapi.Schema(type=openapi.TYPE_STRING, description='Google authorization code'),
+            },
+            required=['code']
+        ),
+        responses={200: TokenSerializer}
+    )
+    def post(self, request):
+        code = request.data.get('code')
+        if not code:
+            return Response({'error': 'Authorization code not provided'}, status=status.HTTP_400_BAD_REQUEST)
+
         token_url = 'https://oauth2.googleapis.com/token'
         token_data = {
             'code': code,
@@ -67,13 +88,10 @@ class GoogleCallbackView(APIView):
         }
         token_response = requests.post(token_url, data=token_data)
         if token_response.status_code != 200:
-            return JsonResponse({'error': 'Failed to obtain access token'}, status=token_response.status_code)
+            return Response({'error': 'Failed to obtain access token'}, status=token_response.status_code)
         
         token_json = token_response.json()
         access_token = token_json.get('access_token')
-        refresh_token = token_json.get('refresh_token')
-        if not access_token:
-            return JsonResponse({'error': 'Access token not found'}, status=400)
         
         # Get the user's info from Google
         userinfo_endpoint = 'https://www.googleapis.com/oauth2/v3/userinfo'
@@ -105,7 +123,7 @@ class GoogleCallbackView(APIView):
                 user.profile_picture.name = file_name
         
         user.save()
-        
+
         # Generate JWT tokens
         refresh = RefreshToken.for_user(user)
         access_token = str(refresh.access_token)
@@ -115,7 +133,6 @@ class GoogleCallbackView(APIView):
             'access': access_token,
             'refresh': refresh_token
         }, status=status.HTTP_200_OK)
-    
 
 class PasswordChangeSerializer(serializers.Serializer):
     old_password = serializers.CharField(required=True)
