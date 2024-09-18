@@ -1,7 +1,7 @@
 from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated
 from .models import Category, Product
-from .serializers import CategorySerializer, ProductSerializer
+from .serializers import CategorySerializer, ProductSerializer, ProductUpdateSerializer 
 from rest_framework.response import Response
 from rest_framework import status
 class CategoryListCreateView(generics.ListCreateAPIView):
@@ -34,7 +34,7 @@ class ProductListCreateView(generics.ListCreateAPIView):
         serializer.save(created_by=self.request.user)
 
 class ProductRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
-    serializer_class = ProductSerializer
+    serializer_class = ProductUpdateSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
