@@ -3,7 +3,8 @@ from .views import (
     CategoryListCreateView,
     CategoryRetrieveUpdateDestroyView,
     ProductListCreateView,
-    ProductRetrieveUpdateDestroyView
+    ProductRetrieveUpdateDestroyView,
+    ProductsByCategoryView
 )
 
 urlpatterns = [
@@ -11,4 +12,5 @@ urlpatterns = [
     path('categories/<uuid:pk>/', CategoryRetrieveUpdateDestroyView.as_view(), name='category-retrieve-update-destroy'),
     path('products/', ProductListCreateView.as_view(), name='product-list-create'),
     path('products/<uuid:pk>/', ProductRetrieveUpdateDestroyView.as_view(), name='product-retrieve-update-destroy'),
+    path('products/category/<uuid:category_id>/', ProductsByCategoryView.as_view(), name='products-by-category'),
 ]
