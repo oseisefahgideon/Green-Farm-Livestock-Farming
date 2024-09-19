@@ -9,6 +9,8 @@ from django.shortcuts import redirect
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
+from google_auth_oauthlib.flow import Flow
+from googleapiclient.discovery import build
 from .serializers import TokenSerializer, GoogleLoginSerializer
 from rest_framework.response import Response
 from drf_yasg.utils import swagger_auto_schema
@@ -21,119 +23,72 @@ from django.core.mail import EmailMessage
 from django.contrib.auth import update_session_auth_hash
 from django.views.generic import TemplateView
 from django.urls import reverse
+import urllib.parse
+from google.oauth2.credentials import Credentials
 
 client = WebApplicationClient(settings.GOOGLE_CLIENT_ID)
 
 class GoogleLoginView(APIView):
-    permission_classes = [permissions.AllowAny]
-    serializer_class = GoogleLoginSerializer
-
-    @swagger_auto_schema(
-        operation_description="Initiates the Google OAuth2 login process",
-        responses={302: "Redirects to Google's OAuth2 login page"}
-    )
     def get(self, request):
-        # Generate the Google authorization URL
-        authorization_endpoint = 'https://accounts.google.com/o/oauth2/auth'
-        request_uri = client.prepare_request_uri(
-            authorization_endpoint,
-            redirect_uri=settings.GOOGLE_REDIRECT_URI,
-            scope=["openid", "email", "profile"],
+        flow = Flow.from_client_secrets_file(
+            settings.GOOGLE_CLIENT_SECRETS_FILE,
+            scopes=['openid', 'https://www.googleapis.com/auth/userinfo.email', 'https://www.googleapis.com/auth/userinfo.profile']
+        )
+        flow.redirect_uri = settings.GOOGLE_REDIRECT_URI
+
+        authorization_url, _ = flow.authorization_url(
+            access_type='offline',
+            include_granted_scopes='true'
         )
 
-        return Response({'url': request_uri}, status=status.HTTP_200_OK)
+        return Response({'url': authorization_url}, status=status.HTTP_200_OK)
+
 
 class GoogleCallbackView(APIView):
-    permission_classes = [permissions.AllowAny]
-
-    @swagger_auto_schema(
-        operation_description="Handles the Google OAuth2 callback and returns the authorization code",
-        responses={200: "Returns the authorization code"}
-    )
     def get(self, request):
-        # Get the authorization code from the callback request
         code = request.GET.get('code')
-        if not code:
-            return JsonResponse({'error': 'Authorization code not provided'}, status=400)
-        
-        # Instead of exchanging the code, simply return it to the client
-        return JsonResponse({'code': code}, status=200)
-    
-class GoogleExchangeView(APIView):
-    permission_classes = [permissions.AllowAny]
-
-    @swagger_auto_schema(
-        operation_description="Exchanges Google authorization code for access and refresh tokens",
-        request_body=openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            properties={
-                'code': openapi.Schema(type=openapi.TYPE_STRING, description='Google authorization code'),
-            },
-            required=['code']
-        ),
-        responses={200: TokenSerializer}
-    )
-    def post(self, request):
-        code = request.data.get('code')
         if not code:
             return Response({'error': 'Authorization code not provided'}, status=status.HTTP_400_BAD_REQUEST)
 
-        token_url = 'https://oauth2.googleapis.com/token'
-        token_data = {
-            'code': code,
-            'redirect_uri': settings.GOOGLE_REDIRECT_URI,
-            'client_id': settings.GOOGLE_CLIENT_ID,
-            'client_secret': settings.GOOGLE_CLIENT_SECRET,
-            'grant_type': 'authorization_code'
-        }
-        token_response = requests.post(token_url, data=token_data)
-        if token_response.status_code != 200:
-            return Response({'error': 'Failed to obtain access token'}, status=token_response.status_code)
-        
-        token_json = token_response.json()
-        access_token = token_json.get('access_token')
-        
-        # Get the user's info from Google
-        userinfo_endpoint = 'https://www.googleapis.com/oauth2/v3/userinfo'
-        userinfo_response = requests.get(userinfo_endpoint, headers={'Authorization': f'Bearer {access_token}'})
-        if userinfo_response.status_code != 200:
-            return JsonResponse({'error': 'Failed to fetch user info'}, status=userinfo_response.status_code)
-        
-        userinfo_json = userinfo_response.json()
-        email = userinfo_json.get('email')
-        given_name = userinfo_json.get('given_name')
-        family_name = userinfo_json.get('family_name')
-        picture_url = userinfo_json.get('picture')
-        
-        # Find or create the user
+        flow = Flow.from_client_secrets_file(
+            settings.GOOGLE_CLIENT_SECRETS_FILE,
+            scopes=['openid', 'https://www.googleapis.com/auth/userinfo.email', 'https://www.googleapis.com/auth/userinfo.profile'],
+            redirect_uri=settings.GOOGLE_REDIRECT_URI
+        )
+
+        flow.fetch_token(code=code)
+        credentials = flow.credentials
+
+        user_info_service = build('oauth2', 'v2', credentials=credentials)
+        user_info = user_info_service.userinfo().get().execute()
+
+        email = user_info['email']
+        first_name = user_info.get('given_name', '')
+        last_name = user_info.get('family_name', '')
+        picture = user_info.get('picture', '')
+
         user, created = User.objects.get_or_create(email=email)
-        
-        # Update user info
-        user.first_name = given_name
-        user.last_name = family_name
-        
-        if picture_url:
-            # Download the picture and save it to the user's profile_picture field
-            picture_response = requests.get(picture_url)
-            if picture_response.status_code == 200:
-                # Create the file path
-                file_name = f"profile_pictures/{user.id}.jpg"
-                # Save the picture to the file system
-                default_storage.save(file_name, ContentFile(picture_response.content))
-                user.profile_picture.name = file_name
-        
+        user.first_name = first_name
+        user.last_name = last_name
+        user.profile_picture = picture
         user.save()
 
-        # Generate JWT tokens
         refresh = RefreshToken.for_user(user)
         access_token = str(refresh.access_token)
-        refresh_token = str(refresh)
-        
-        return Response({
-            'access': access_token,
-            'refresh': refresh_token
-        }, status=status.HTTP_200_OK)
 
+        params = urllib.parse.urlencode({
+            'access_token': access_token,
+            'refresh_token': str(refresh),
+            'user_id': user.id,
+            'email': user.email,
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'profile_picture': user.profile_picture
+        })
+
+        redirect_url = f"{settings.FRONTEND_REDIRECT_URI}?{params}"
+        return redirect(redirect_url)
+    
 class PasswordChangeSerializer(serializers.Serializer):
     old_password = serializers.CharField(required=True)
     new_password = serializers.CharField(required=True)
