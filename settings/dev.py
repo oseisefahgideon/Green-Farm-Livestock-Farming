@@ -222,7 +222,7 @@ AUTH_USER_MODEL = "account.User"
 GOOGLE_CLIENT_ID  = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET  = os.getenv("GOOGLE_CLIENT_SECRET")
 GOOGLE_REDIRECT_URI=os.getenv("GOOGLE_REDIRECT_URI")
-FRONTEDN_REDIRECT_URI = os.getenv("FRONTEND_REDIRECT_URI", "farminglivestock://auth/google/callback")
+FRONTEND_REDIRECT_URI = os.getenv("FRONTEND_REDIRECT_URI", "farminglivestock://auth/google/callback")
 GOOGLE_CLIENT_SECRETS_FILE=os.getenv("GOOGLE_CLIENT_SECRETS_FILE", "client_secrets.json")
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
