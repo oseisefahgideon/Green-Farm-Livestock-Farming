@@ -78,10 +78,8 @@ class GoogleCallbackView(APIView):
         refresh = RefreshToken.for_user(user)
         access_token = str(refresh.access_token)
 
-        return Response({
-            'access_token': access_token,
-            'refresh_token': str(refresh)
-        }, status=status.HTTP_200_OK)
+        redirect_url = f"farminglivestock://auth/google/callback?access_token={access_token}&refresh_token={str(refresh)}"
+        return redirect(redirect_url)
 class PasswordChangeSerializer(serializers.Serializer):
     old_password = serializers.CharField(required=True)
     new_password = serializers.CharField(required=True)
