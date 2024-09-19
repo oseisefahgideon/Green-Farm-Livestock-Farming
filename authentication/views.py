@@ -1,20 +1,13 @@
-import requests
 from django.conf import settings
-from django.http import JsonResponse
 from rest_framework.views import APIView
-from oauthlib.oauth2 import WebApplicationClient
 from rest_framework import permissions, status, serializers
 from account.models import User
-from django.shortcuts import redirect
 from rest_framework_simplejwt.tokens import RefreshToken
-from django.core.files.base import ContentFile
-from django.core.files.storage import default_storage
 from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
-from .serializers import TokenSerializer, GoogleLoginSerializer
+from .serializers import TokenSerializer
 from rest_framework.response import Response
 from drf_yasg.utils import swagger_auto_schema
-from drf_yasg import openapi
 from django.contrib.auth.tokens import default_token_generator
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
@@ -23,14 +16,13 @@ from django.core.mail import EmailMessage
 from django.contrib.auth import update_session_auth_hash
 from django.views.generic import TemplateView
 from django.urls import reverse
-import urllib.parse
 from google.oauth2.credentials import Credentials
 from rest_framework.permissions import AllowAny
 
-client = WebApplicationClient(settings.GOOGLE_CLIENT_ID)
 
 class GoogleLoginView(APIView):
     permission_classes = [AllowAny]
+
     def get(self, request):
         flow = Flow.from_client_secrets_file(
             settings.GOOGLE_CLIENT_SECRETS_FILE,
@@ -45,10 +37,12 @@ class GoogleLoginView(APIView):
 
         return Response({'url': authorization_url}, status=status.HTTP_200_OK)
 
-
 class GoogleCallbackView(APIView):
-    def get(self, request):
-        code = request.GET.get('code')
+    permission_classes = [AllowAny]
+    serializers = TokenSerializer
+
+    def post(self, request):
+        code = request.data.get('code')
         if not code:
             return Response({'error': 'Authorization code not provided'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -58,7 +52,11 @@ class GoogleCallbackView(APIView):
             redirect_uri=settings.GOOGLE_REDIRECT_URI
         )
 
-        flow.fetch_token(code=code)
+        try:
+            flow.fetch_token(code=code)
+        except Exception as e:
+            return Response({'error': 'Failed to fetch token'}, status=status.HTTP_400_BAD_REQUEST)
+
         credentials = flow.credentials
 
         user_info_service = build('oauth2', 'v2', credentials=credentials)
@@ -78,8 +76,11 @@ class GoogleCallbackView(APIView):
         refresh = RefreshToken.for_user(user)
         access_token = str(refresh.access_token)
 
-        redirect_url = f"{settings.GOOGLE_REDIRECT_URI}?access_token={access_token}&refresh_token={str(refresh)}"
-        return redirect(redirect_url)
+        return Response({
+            'access_token': access_token,
+            'refresh_token': str(refresh)
+        }, status=status.HTTP_200_OK)
+    
 class PasswordChangeSerializer(serializers.Serializer):
     old_password = serializers.CharField(required=True)
     new_password = serializers.CharField(required=True)
