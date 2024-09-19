@@ -25,10 +25,12 @@ from django.views.generic import TemplateView
 from django.urls import reverse
 import urllib.parse
 from google.oauth2.credentials import Credentials
+from rest_framework.permissions import AllowAny
 
 client = WebApplicationClient(settings.GOOGLE_CLIENT_ID)
 
 class GoogleLoginView(APIView):
+    permission_classes = [AllowAny]
     def get(self, request):
         flow = Flow.from_client_secrets_file(
             settings.GOOGLE_CLIENT_SECRETS_FILE,
