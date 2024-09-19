@@ -78,19 +78,10 @@ class GoogleCallbackView(APIView):
         refresh = RefreshToken.for_user(user)
         access_token = str(refresh.access_token)
 
-        params = urllib.parse.urlencode({
+        return Response({
             'access_token': access_token,
-            'refresh_token': str(refresh),
-            'user_id': user.id,
-            'email': user.email,
-            'first_name': user.first_name,
-            'last_name': user.last_name,
-            'profile_picture': user.profile_picture
-        })
-
-        redirect_url = f"{settings.FRONTEND_REDIRECT_URI}?{params}"
-        return redirect(redirect_url)
-    
+            'refresh_token': str(refresh)
+        }, status=status.HTTP_200_OK)
 class PasswordChangeSerializer(serializers.Serializer):
     old_password = serializers.CharField(required=True)
     new_password = serializers.CharField(required=True)
