@@ -14,28 +14,27 @@ from django.contrib.auth import update_session_auth_hash
 from django.views.generic import TemplateView
 from django.urls import reverse
 from rest_framework.permissions import AllowAny
-import requests as http_requests
+import firebase_admin
+from firebase_admin import credentials, auth
 
+# Initialize Firebase Admin SDK
+cred = credentials.Certificate(settings.CREDENTIAL_PATH)
+firebase_admin.initialize_app(cred)
 
 class GoogleLoginView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        access_token = request.data.get('token')
-        if not access_token:
+        firebase_token = request.data.get('token')
+        if not firebase_token:
             return Response({'error': 'No token provided'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            # Use the access token to fetch the user's information
-            userinfo_response = http_requests.get(
-                'https://www.googleapis.com/oauth2/v3/userinfo',
-                headers={'Authorization': f'Bearer {access_token}'}
-            )
-            userinfo_response.raise_for_status()
-            userinfo = userinfo_response.json()
-
-            email = userinfo['email']
-            name = userinfo.get('name', '')
+            # Verify the Firebase token
+            decoded_token = auth.verify_id_token(firebase_token)
+            uid = decoded_token['uid']
+            email = decoded_token['email']
+            name = decoded_token.get('name', '')
             
             user, created = User.objects.get_or_create(email=email)
             if created:
@@ -53,11 +52,11 @@ class GoogleLoginView(APIView):
                 }
             })
 
-        except http_requests.RequestException as e:
-            return Response({'error': f'Invalid token or request failed: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
+        except auth.InvalidIdTokenError:
+            return Response({'error': 'Invalid Firebase token'}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({'error': f'Unexpected error: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-  
+        
 class PasswordChangeSerializer(serializers.Serializer):
     old_password = serializers.CharField(required=True)
     new_password = serializers.CharField(required=True)

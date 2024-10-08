@@ -218,12 +218,8 @@ SWAGGER_SETTINGS = {
 AUTH_USER_MODEL = "account.User"
 
 
-# Google configuration
-GOOGLE_CLIENT_ID  = os.getenv("GOOGLE_CLIENT_ID")
-GOOGLE_CLIENT_SECRET  = os.getenv("GOOGLE_CLIENT_SECRET")
-GOOGLE_REDIRECT_URI=os.getenv("GOOGLE_REDIRECT_URI")
-FRONTEND_REDIRECT_URI = os.getenv("FRONTEND_REDIRECT_URI", "farminglivestock://auth/google/callback")
-GOOGLE_CLIENT_SECRETS_FILE=os.getenv("GOOGLE_CLIENT_SECRETS_FILE", "client_secrets.json")
+# firebase configuration
+CREDENTIAL_PATH=os.getenv("CREDENTIAL_PATH", "firebase-adminsdk.json")
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
