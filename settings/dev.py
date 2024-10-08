@@ -219,8 +219,6 @@ AUTH_USER_MODEL = "account.User"
 
 
 # firebase configuration
-CREDENTIAL_PATH=os.getenv("CREDENTIAL_PATH", "firebase-adminsdk.json")
-
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587

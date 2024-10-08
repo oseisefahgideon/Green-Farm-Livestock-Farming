@@ -18,7 +18,7 @@ import firebase_admin
 from firebase_admin import credentials, auth
 
 # Initialize Firebase Admin SDK
-cred = credentials.Certificate(settings.CREDENTIAL_PATH)
+cred = credentials.Certificate("firebase-adminsdk.json")
 firebase_admin.initialize_app(cred)
 
 class GoogleLoginView(APIView):
