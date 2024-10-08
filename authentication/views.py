@@ -3,9 +3,6 @@ from rest_framework.views import APIView
 from rest_framework import permissions, status, serializers
 from account.models import User
 from rest_framework_simplejwt.tokens import RefreshToken
-from google_auth_oauthlib.flow import Flow
-from googleapiclient.discovery import build
-from .serializers import TokenSerializer
 from rest_framework.response import Response
 from drf_yasg.utils import swagger_auto_schema
 from django.contrib.auth.tokens import default_token_generator
@@ -16,71 +13,51 @@ from django.core.mail import EmailMessage
 from django.contrib.auth import update_session_auth_hash
 from django.views.generic import TemplateView
 from django.urls import reverse
-from google.oauth2.credentials import Credentials
 from rest_framework.permissions import AllowAny
+import requests as http_requests
 
 
 class GoogleLoginView(APIView):
     permission_classes = [AllowAny]
 
-    def get(self, request):
-        flow = Flow.from_client_secrets_file(
-            settings.GOOGLE_CLIENT_SECRETS_FILE,
-            scopes=['openid', 'https://www.googleapis.com/auth/userinfo.email', 'https://www.googleapis.com/auth/userinfo.profile']
-        )
-        flow.redirect_uri = settings.GOOGLE_REDIRECT_URI
-
-        authorization_url, _ = flow.authorization_url(
-            access_type='offline',
-            include_granted_scopes='true'
-        )
-
-        return Response({'url': authorization_url}, status=status.HTTP_200_OK)
-
-class GoogleCallbackView(APIView):
-    permission_classes = [AllowAny]
-    serializers = TokenSerializer
-
     def post(self, request):
-        code = request.data.get('code')
-        if not code:
-            return Response({'error': 'Authorization code not provided'}, status=status.HTTP_400_BAD_REQUEST)
-
-        flow = Flow.from_client_secrets_file(
-            settings.GOOGLE_CLIENT_SECRETS_FILE,
-            scopes=['openid', 'https://www.googleapis.com/auth/userinfo.email', 'https://www.googleapis.com/auth/userinfo.profile'],
-            redirect_uri=settings.GOOGLE_REDIRECT_URI
-        )
+        access_token = request.data.get('token')
+        if not access_token:
+            return Response({'error': 'No token provided'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            flow.fetch_token(code=code)
+            # Use the access token to fetch the user's information
+            userinfo_response = http_requests.get(
+                'https://www.googleapis.com/oauth2/v3/userinfo',
+                headers={'Authorization': f'Bearer {access_token}'}
+            )
+            userinfo_response.raise_for_status()
+            userinfo = userinfo_response.json()
+
+            email = userinfo['email']
+            name = userinfo.get('name', '')
+            
+            user, created = User.objects.get_or_create(email=email)
+            if created:
+                user.name = name
+                user.save()
+
+            refresh = RefreshToken.for_user(user)
+            return Response({
+                'access_token': str(refresh.access_token),
+                'refresh_token': str(refresh),
+                'user': {
+                    'id': user.id,
+                    'email': user.email,
+                    'name': user.name
+                }
+            })
+
+        except http_requests.RequestException as e:
+            return Response({'error': f'Invalid token or request failed: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
-            return Response({'error': 'Failed to fetch token'}, status=status.HTTP_400_BAD_REQUEST)
-
-        credentials = flow.credentials
-
-        user_info_service = build('oauth2', 'v2', credentials=credentials)
-        user_info = user_info_service.userinfo().get().execute()
-
-        email = user_info['email']
-        first_name = user_info.get('given_name', '')
-        last_name = user_info.get('family_name', '')
-        picture = user_info.get('picture', '')
-
-        user, created = User.objects.get_or_create(email=email)
-        user.first_name = first_name
-        user.last_name = last_name
-        user.profile_picture = picture
-        user.save()
-
-        refresh = RefreshToken.for_user(user)
-        access_token = str(refresh.access_token)
-
-        return Response({
-            'access_token': access_token,
-            'refresh_token': str(refresh)
-        }, status=status.HTTP_200_OK)
-    
+            return Response({'error': f'Unexpected error: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+  
 class PasswordChangeSerializer(serializers.Serializer):
     old_password = serializers.CharField(required=True)
     new_password = serializers.CharField(required=True)
