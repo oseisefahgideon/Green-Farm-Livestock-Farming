@@ -6,4 +6,5 @@ urlpatterns = [
     path("management/", include("management.urls")),
     path("tasks/", include("tasks.urls")),
     path("inventory/", include("inventory.urls")),
+    path("financial/", include("financial.urls")),
 ]
